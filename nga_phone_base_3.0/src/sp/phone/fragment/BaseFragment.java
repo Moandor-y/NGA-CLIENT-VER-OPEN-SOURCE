@@ -74,10 +74,6 @@ public abstract class BaseFragment extends Fragment {
         setTitle(getString(resId));
     }
 
-    protected LayoutInflater getLayoutInflater() {
-        return mActivity != null ? mActivity.getLayoutInflater() : null;
-    }
-
     protected FragmentManager getSupportFragmentManager() {
         return getChildFragmentManager();
     }

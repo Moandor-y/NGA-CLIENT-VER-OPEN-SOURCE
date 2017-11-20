@@ -13,7 +13,7 @@ import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode;
 import android.support.v7.view.ActionMode.Callback;
 import android.view.LayoutInflater;
@@ -733,7 +733,7 @@ public class ArticleListFragmentNew extends Fragment implements
 
                     @Override
                     public boolean onLongClick(View v) {
-                        ((ActionBarActivity) getActivity()).startSupportActionMode(mActionModeCallback);
+                        ((AppCompatActivity) getActivity()).startSupportActionMode(mActionModeCallback);
                         return false;
                     }
 

@@ -4,7 +4,7 @@ import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode;
 import android.support.v7.view.ActionMode.Callback;
 import android.view.ContextMenu;
@@ -107,7 +107,7 @@ public class MessageDetialListContainer extends BaseFragment implements
                 ListView lv = (ListView) parent;
                 lv.setItemChecked(position, true);
                 if (mActionModeCallback != null) {
-                    ((ActionBarActivity) getActivity())
+                    ((AppCompatActivity) getActivity())
                             .startSupportActionMode((Callback) mActionModeCallback);
                     return true;
                 }

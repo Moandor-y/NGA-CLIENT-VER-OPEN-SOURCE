@@ -20,7 +20,7 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode.Callback;
 import android.text.Html;
@@ -185,7 +185,7 @@ public class FunctionUtils {
                 @Override
                 public boolean onLongClick(View v) {
                     // TODO Auto-generated method stub
-                    ((ActionBarActivity) context)
+                    ((AppCompatActivity) context)
                             .startSupportActionMode(mActionModeCallback);
                     return true;
                 }
@@ -239,7 +239,7 @@ public class FunctionUtils {
 
                 @Override
                 public boolean onLongClick(View v) {
-                    ((ActionBarActivity) context).startSupportActionMode(mActionModeCallback);
+                    ((AppCompatActivity) context).startSupportActionMode(mActionModeCallback);
                     return true;
                 }
 
