@@ -1,28 +1,34 @@
 package sp.phone.utils;
 
+import android.app.Activity;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
-import android.util.Log;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Toast;
 
 import gov.anzong.androidnga.R;
 import gov.anzong.androidnga.activity.ArticleListActivity;
+import gov.anzong.androidnga.activity.MessageDetailActivity;
 import gov.anzong.androidnga.activity.MessageListActivity;
+import gov.anzong.androidnga.activity.SettingsSubActivity;
+import gov.anzong.androidnga.activity.TopicListActivity;
 import sp.phone.bean.BoardHolder;
 import sp.phone.common.PhoneConfiguration;
+import sp.phone.common.UserManagerImpl;
+import sp.phone.fragment.dialog.SearchDialogFragment;
 
 public class ActivityUtils {
 
@@ -32,10 +38,14 @@ public class ActivityUtils {
     static ActivityUtils instance;
     static Object lock = new Object();
     private DialogFragment df = null;
-    private static String[] sMaterialSupportList = {"SettingsActivity", "LoginActivity","MessageListActivity","MessageDetailActivity"
-            ,"MessagePostActivity","FlexibleTopicListActivity","PostActivity"};
+    private static String[] sMaterialSupportList = {"SettingsActivity", "LoginActivity", "MessageListActivity", "MessageDetailActivity"
+            , "MessagePostActivity", "TopicListActivity", "PostActivity"};
 
-    private static String[] sSupportNewUi = { "SettingsActivity" ,"LoginActivity","MainActivity", ArticleListActivity.class.getSimpleName(), MessageListActivity.class.getSimpleName()};
+    private static String[] sSupportNewUi = {"SettingsActivity", "LoginActivity", "MainActivity",
+            TopicListActivity.class.getSimpleName(),
+            MessageDetailActivity.class.getSimpleName(),
+            SettingsSubActivity.class.getSimpleName(),
+            ArticleListActivity.class.getSimpleName(), MessageListActivity.class.getSimpleName()};
 
     public static final int REQUEST_CODE_LOGIN = 1;
 
@@ -43,36 +53,45 @@ public class ActivityUtils {
 
     public static final int REQUEST_CODE_TOPIC_POST = 3;
 
+    public static final int REQUEST_CODE_JUMP_PAGE = 4;
+
+    public static final String PATH_LOGIN = "/activity/LoginActivity";
+
+    public static final String PATH_TOPIC_LIST = "/activity/TopicListActivity";
+
+    public static final String PATH_ARTICLE_LIST = "/activity/ArticleListActivity";
+
+
     private ActivityUtils() {
     }
 
-    public static boolean supportMaterialMode(Context context){
-        for (int i = 0 ; i < sMaterialSupportList.length; i++){
-            if (sMaterialSupportList[i].equals(context.getClass().getSimpleName())){
+    public static boolean supportMaterialMode(Context context) {
+        for (int i = 0; i < sMaterialSupportList.length; i++) {
+            if (sMaterialSupportList[i].equals(context.getClass().getSimpleName())) {
                 return true;
             }
         }
         return false;
     }
 
-    public static boolean supportNewUi(Context context){
-        for (int i = 0 ; i < sSupportNewUi.length; i++){
-            if (sSupportNewUi[i].equals(context.getClass().getSimpleName())){
+    public static boolean supportNewUi(Context context) {
+        for (int i = 0; i < sSupportNewUi.length; i++) {
+            if (sSupportNewUi[i].equals(context.getClass().getSimpleName())) {
                 return true;
             }
         }
         return false;
     }
 
-    public static void showToast(Context context,int resId) {
+    public static void showToast(Context context, int resId) {
         if (context != null) {
-            Toast.makeText(context,resId,Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, resId, Toast.LENGTH_SHORT).show();
         }
     }
 
-    public static void showToast(Context context,String res) {
+    public static void showToast(Context context, String res) {
         if (context != null) {
-            Toast.makeText(context,res,Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, res, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -99,7 +118,7 @@ public class ActivityUtils {
             location = locationManager.getLastKnownLocation(provider);
         } 
         /*else{
-	    	Toast.makeText(context, R.string.location_service_disabled, Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, R.string.location_service_disabled, Toast.LENGTH_SHORT).show();
 	    	return;
 	    }*/
 
@@ -148,12 +167,6 @@ public class ActivityUtils {
         return Math.round(s * 1000);
     }
 
-    public static void appendStaticBoard(BoardHolder boards) {
-        if (null == boards)
-            return;
-
-    }
-
     static public String getSaying() {
         String str = StringUtils.getSaying();
         if (str.indexOf(";") != -1) {
@@ -162,21 +175,6 @@ public class ActivityUtils {
 
         return str;
 
-    }
-
-    public static void dismissSaying(FragmentActivity fa) {
-        if (null == fa)
-            return;
-        FragmentManager fm = fa.getSupportFragmentManager();
-        FragmentTransaction ft = fm.beginTransaction();
-
-        Fragment prev = fm.findFragmentByTag(ActivityUtils.dialogTag);
-        if (prev != null) {
-            ft.remove(prev);
-
-        }
-
-        ft.commit();
     }
 
     public void setFullScreen(View v) {
@@ -408,4 +406,76 @@ public class ActivityUtils {
 
     }
 
+    public static void startMessagePostActivity(Activity activity, Intent intent) {
+        if (UserManagerImpl.getInstance().getActiveUser() == null) {// 登入了才能发
+            intent.setClass(activity, PhoneConfiguration.getInstance().loginActivityClass);
+        } else {
+            intent.setClass(activity, PhoneConfiguration.getInstance().messagePostActivityClass);
+        }
+        activity.startActivity(intent);
+    }
+
+    public static void startMessagePostActivityForResult(Activity activity, Intent intent, int requestCode) {
+        if (UserManagerImpl.getInstance().getActiveUser() == null) {// 登入了才能发
+            intent.setClass(activity, PhoneConfiguration.getInstance().loginActivityClass);
+            activity.startActivity(intent);
+        } else {
+            intent.setClass(activity, PhoneConfiguration.getInstance().messagePostActivityClass);
+            activity.startActivityForResult(intent, requestCode);
+        }
+    }
+
+    public static void startLoginActivity(Context context) {
+        Intent intent = new Intent(context, PhoneConfiguration.getInstance().loginActivityClass);
+        context.startActivity(intent);
+    }
+
+    public static void startFavoriteTopicActivity(Context context) {
+        if (UserManagerImpl.getInstance().getActiveUser() == null) {
+            startLoginActivity(context);
+        } else {
+            Intent intent = new Intent(context, PhoneConfiguration.getInstance().topicActivityClass);
+            intent.putExtra("favor", 1);
+            context.startActivity(intent);
+        }
+    }
+
+    public static void startRecommendTopicActivity(Context context, Intent intent) {
+        if (UserManagerImpl.getInstance().getActiveUser() == null) {
+            startLoginActivity(context);
+        } else {
+            intent.setClass(context, PhoneConfiguration.getInstance().topicActivityClass);
+            context.startActivity(intent);
+        }
+    }
+
+    public static void startPostActivity(Context context, Intent intent) {
+        if (UserManagerImpl.getInstance().getActiveUser() == null) {
+            startLoginActivity(context);
+        } else {
+            intent.setClass(context, PhoneConfiguration.getInstance().postActivityClass);
+            context.startActivity(intent);
+        }
+    }
+
+    public static void startSearchDialog(AppCompatActivity activity, Bundle bundle) {
+        if (UserManagerImpl.getInstance().getActiveUser() == null) {
+            startLoginActivity(activity);
+            return;
+        }
+        DialogFragment df = new SearchDialogFragment();
+        df.setArguments(bundle);
+        final String dialogTag = SearchDialogFragment.class.getSimpleName();
+        FragmentManager fm = activity.getSupportFragmentManager();
+        FragmentTransaction ft = fm.beginTransaction();
+        Fragment prev = fm.findFragmentByTag(dialogTag);
+        if (prev != null) {
+            ft.remove(prev);
+        }
+        try {
+            df.show(ft, dialogTag);
+        } catch (Exception e) {
+
+        }
+    }
 }

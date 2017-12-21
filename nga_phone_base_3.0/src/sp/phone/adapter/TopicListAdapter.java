@@ -1,9 +1,10 @@
 package sp.phone.adapter;
 
 import android.content.Context;
-import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.widget.RecyclerView;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
@@ -13,115 +14,126 @@ import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.BaseAdapter;
 import android.widget.TextView;
 
+import com.jakewharton.rxbinding2.view.RxView;
+
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import gov.anzong.androidnga.R;
-import sp.phone.bean.ThreadPageInfo;
-import sp.phone.bean.TopicListInfo;
-import sp.phone.interfaces.OnTopListLoadFinishedListener;
+import io.reactivex.functions.Consumer;
 import sp.phone.common.PhoneConfiguration;
-import sp.phone.utils.StringUtils;
 import sp.phone.common.ThemeManager;
+import sp.phone.mvp.model.entity.ThreadPageInfo;
+import sp.phone.mvp.model.entity.TopicListInfo;
+import sp.phone.utils.StringUtils;
+import sp.phone.view.RecyclerViewEx;
 
-public abstract class TopicListAdapter extends BaseAdapter implements OnTopListLoadFinishedListener {
+public class TopicListAdapter extends RecyclerView.Adapter<TopicListAdapter.TopicViewHolder> implements RecyclerViewEx.IAppendAbleAdapter {
+
+    private List<ThreadPageInfo> mThreadPageList = new ArrayList<>();
+
+    private Context mContext;
+
+    private boolean mHaveNextPage = true;
+
+    private int mTotalPage;
+
+    private View.OnClickListener mClickListener;
+
+    private View.OnLongClickListener mLongClickListener;
 
     private final static int _FONT_RED = 1, _FONT_BLUE = 2, _FONT_GREEN = 4,
             _FONT_ORANGE = 8, _FONT_SILVER = 16, _FONT_B = 32, _FONT_I = 64,
             _FONT_U = 128;
-    protected Context context;
-    protected int count = 0;
-    private LayoutInflater inflater;
-    private TopicListInfo topicListInfo = null;
-    private int selected = -1;
 
     public TopicListAdapter(Context context) {
-        this.context = context;
-        this.inflater = LayoutInflater.from(context);
+        mContext = context;
     }
 
-    public Object getItem(int arg0) {
-        ThreadPageInfo entry = getEntry(arg0);
-        if (entry == null || entry.getTid() == 0) {
-            return null;
+
+    public void setData(TopicListInfo result) {
+
+        for (ThreadPageInfo info : result.getThreadPageList()) {
+            if (!mThreadPageList.contains(info)) {
+                mThreadPageList.add(info);
+            }
         }
-
-        String ret = "tid=" + entry.getTid();
-        if (entry.getPid() != 0) {
-            return ret + "&pid=" + entry.getPid();
-        }
-        return ret;
+        mTotalPage++;
+        notifyDataSetChanged();
     }
 
-    public int getCount() {
-        return count;
+    public void clear() {
+        mTotalPage = 0;
+        mHaveNextPage = true;
+        mThreadPageList.clear();
     }
 
-    public long getItemId(int arg0) {
-        return arg0;
+    @Override
+    public int getNextPage() {
+        return mTotalPage + 1;
     }
 
-    public View getView(int position, View view, ViewGroup parent) {
-        View convertView = view;
-        ViewHolder holder = null;
-        if (convertView == null) {
-            convertView = inflater.inflate(R.layout.relative_topic_list, null);
-            TextView num = (TextView) convertView.findViewById(R.id.num);
-            TextView title = (TextView) convertView.findViewById(R.id.title);
-            TextView author = (TextView) convertView.findViewById(R.id.author);
-            TextView lastReply = (TextView) convertView
-                    .findViewById(R.id.last_reply);
-            holder = new ViewHolder();
-            holder.num = num;
-            holder.title = title;
-            holder.author = author;
-            holder.lastReply = lastReply;
-            convertView.setTag(holder);
-        } else {
-            holder = (ViewHolder) convertView.getTag();
-        }
+    @Override
+    public boolean hasNextPage() {
+        return mHaveNextPage;
+    }
+
+    public void setNextPageEnabled(boolean enabled) {
+        mHaveNextPage = enabled;
+    }
+
+    @Override
+    public TopicViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        return new TopicViewHolder(LayoutInflater.from(mContext).inflate(R.layout.relative_topic_list, parent, false));
+    }
+
+    @Override
+    public void onBindViewHolder(final TopicViewHolder holder, int position) {
+
+        ThreadPageInfo info = mThreadPageList.get(position);
+        info.setPosition(position);
+        //避免双击
+        RxView.clicks(holder.itemView)
+                .throttleFirst(1, TimeUnit.SECONDS)
+                .subscribe(new Consumer<Object>() {
+                    @Override
+                    public void accept(Object o) throws Exception {
+                        mClickListener.onClick(holder.itemView);
+                    }
+                });
+        holder.itemView.setOnLongClickListener(mLongClickListener);
+        holder.itemView.setTag(info);
 
         ThemeManager cfg = ThemeManager.getInstance();
         int colorId = cfg.getBackgroundColor(position);
-        if (position == this.selected) {
-            if (cfg.mode == ThemeManager.MODE_NIGHT)
-                colorId = R.color.topiclist_selected_color;
-            else
-                colorId = R.color.holo_blue_light;
-        }
-        convertView.setBackgroundResource(colorId);
-        handleJsonList(holder, position);
-        return convertView;
+        holder.itemView.setBackgroundResource(colorId);
+        handleJsonList(holder, info);
     }
 
-    public void setSelected(int position) {
-        this.selected = position;
-    }
-
-    private void handleJsonList(ViewHolder holder, int position) {
-        ThreadPageInfo entry = getEntry(position);
+    private void handleJsonList(TopicViewHolder holder, ThreadPageInfo entry) {
 
         if (entry == null) {
             return;
         }
-        Resources res = inflater.getContext().getResources();
         ThemeManager theme = ThemeManager.getInstance();
         boolean night = false;
-        int nightLinkColor = res.getColor(R.color.night_link_color);
+        int nightLinkColor = ContextCompat.getColor(mContext, R.color.night_link_color);
         if (theme.getMode() == ThemeManager.MODE_NIGHT)
             night = true;
         holder.author.setText(entry.getAuthor());
         if (night)
             holder.author.setTextColor(nightLinkColor);
 
-        String lastPoster = entry.getLastposter_org();
-        if (StringUtils.isEmpty(lastPoster))
-            lastPoster = entry.getLastposter();
+        String lastPoster = entry.getLastPoster();
         holder.lastReply.setText(lastPoster);
-        holder.num.setText("" + entry.getReplies());
+        holder.num.setText(String.valueOf(entry.getReplies()));
         if (night) {
             holder.lastReply.setTextColor(nightLinkColor);
             holder.num.setTextColor(nightLinkColor);
@@ -131,78 +143,83 @@ public abstract class TopicListAdapter extends BaseAdapter implements OnTopListL
 
     private void handleTitleView(TextView view, ThreadPageInfo entry) {
         ThemeManager theme = ThemeManager.getInstance();
-        Resources res = inflater.getContext().getResources();
         float size = PhoneConfiguration.getInstance().getTextSize();
-        view.setTextColor(res.getColor(theme.getForegroundColor()));
+        view.setTextColor(ContextCompat.getColor(mContext, theme.getForegroundColor()));
         view.setTextSize(size);
-        String titile = entry.getContent();
+        String title = entry.getSubject();
         int type = entry.getType();
-        String needadd = "";
+        String needAdd = "";
         if ((type & 1024) == 1024) {
-            needadd += " [锁定]";
+            needAdd += " [锁定]";
         }
         if ((type & 8192) == 8192) {
-            needadd += " +";
+            needAdd += " +";
         }
-        int titlelength;
-        if (StringUtils.isEmpty(titile)) {
-            titile = entry.getSubject();
-            titile = StringUtils.unEscapeHtml(titile);
-            titlelength = titile.length();
-            titile += needadd;
+        int titleLength;
+        if (StringUtils.isEmpty(title)) {
+            title = entry.getSubject();
+            title = StringUtils.unEscapeHtml(title);
+            titleLength = title.length();
+            title += needAdd;
 
         } else {
-            titile = StringUtils.removeBrTag(StringUtils
-                    .unEscapeHtml(titile));
-            titlelength = titile.length();
-            titile += needadd;
+            title = StringUtils.removeBrTag(StringUtils
+                    .unEscapeHtml(title));
+            titleLength = title.length();
+            title += needAdd;
         }
-        ForegroundColorSpan greenSpan = new ForegroundColorSpan(context.getResources().getColor(R.color.title_green));
-        ForegroundColorSpan blueSpan = new ForegroundColorSpan(context.getResources().getColor(R.color.title_blue));
-        ForegroundColorSpan redSpan = new ForegroundColorSpan(context.getResources().getColor(R.color.title_red));
-        ForegroundColorSpan lockredSpan = new ForegroundColorSpan(Color.RED);
-        ForegroundColorSpan orangeSpan = new ForegroundColorSpan(context.getResources().getColor(R.color.title_orange));
-        ForegroundColorSpan picorangeSpan = new ForegroundColorSpan(context.getResources().getColor(R.color.title_orange));
-        ForegroundColorSpan sliverSpan = new ForegroundColorSpan(context.getResources().getColor(R.color.silver));
+        ForegroundColorSpan greenSpan = new ForegroundColorSpan(ContextCompat.getColor(mContext, R.color.title_green));
+        ForegroundColorSpan blueSpan = new ForegroundColorSpan(ContextCompat.getColor(mContext, R.color.title_blue));
+        ForegroundColorSpan redSpan = new ForegroundColorSpan(ContextCompat.getColor(mContext, R.color.title_red));
+        ForegroundColorSpan lockRedSpan = new ForegroundColorSpan(Color.RED);
+        ForegroundColorSpan orangeSpan = new ForegroundColorSpan(ContextCompat.getColor(mContext, R.color.title_orange));
+        ForegroundColorSpan picOrangeSpan = new ForegroundColorSpan(ContextCompat.getColor(mContext, R.color.title_orange));
+        ForegroundColorSpan sliverSpan = new ForegroundColorSpan(ContextCompat.getColor(mContext, R.color.silver));
 
-        SpannableStringBuilder builder = new SpannableStringBuilder(titile);
-        int totallength = titile.length();
-        if ((type & 8192) == 8192 && (type & 1024) == 1024 && totallength >= 6) {//均有
-            builder.setSpan(picorangeSpan, totallength - 1, totallength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-            builder.setSpan(lockredSpan, totallength - 6, totallength - 2, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        } else if ((type & 8192) == 8192 && totallength > 0) {//只有+
-            builder.setSpan(picorangeSpan, totallength - 1, totallength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        } else if ((type & 1024) == 1024 && totallength >= 4) {//只有锁定
-            builder.setSpan(lockredSpan, totallength - 4, totallength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        SpannableStringBuilder builder = new SpannableStringBuilder(title);
+        int totalLength = title.length();
+        if ((type & 8192) == 8192 && (type & 1024) == 1024 && totalLength >= 6) {//均有
+            builder.setSpan(picOrangeSpan, totalLength - 1, totalLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            builder.setSpan(lockRedSpan, totalLength - 6, totalLength - 2, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        } else if ((type & 8192) == 8192 && totalLength > 0) {//只有+
+            builder.setSpan(picOrangeSpan, totalLength - 1, totalLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        } else if ((type & 1024) == 1024 && totalLength >= 4) {//只有锁定
+            builder.setSpan(lockRedSpan, totalLength - 4, totalLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         if (!StringUtils.isEmpty(entry.getTopicMisc())) {
             final String misc = entry.getTopicMisc();
-            if (misc.indexOf("~") >= 0) {
+            if (misc.contains("~")) {
                 if (misc.equals("~1~~") || misc.equals("~~~1")) {
-                    builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                 } else {
-                    String miscarray[] = misc.toLowerCase(Locale.US).split("~");
-                    for (int i = 0; i < miscarray.length; i++) {
-                        if (miscarray[i].equals("green")) {
-                            builder.setSpan(greenSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        } else if (miscarray[i].equals("blue")) {
-                            builder.setSpan(blueSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        } else if (miscarray[i].equals("red")) {
-                            builder.setSpan(redSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        } else if (miscarray[i].equals("orange")) {
-                            builder.setSpan(orangeSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        } else if (miscarray[i].equals("sliver")) {
-                            builder.setSpan(sliverSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    String miscArray[] = misc.toLowerCase(Locale.US).split("~");
+                    for (String aMiscArray : miscArray) {
+                        switch (aMiscArray) {
+                            case "green":
+                                builder.setSpan(greenSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                break;
+                            case "blue":
+                                builder.setSpan(blueSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                break;
+                            case "red":
+                                builder.setSpan(redSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                break;
+                            case "orange":
+                                builder.setSpan(orangeSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                break;
+                            case "sliver":
+                                builder.setSpan(sliverSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                break;
                         }
-                        if (miscarray[i].equals("b") && miscarray[i].equals("i")) {
-                            builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        } else if (miscarray[i].equals("b")) {
-                            builder.setSpan(new StyleSpan(Typeface.BOLD), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        } else if (miscarray[i].equals("i")) {
-                            builder.setSpan(new StyleSpan(Typeface.ITALIC), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        if (aMiscArray.equals("b") && aMiscArray.equals("i")) {
+                            builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        } else if (aMiscArray.equals("b")) {
+                            builder.setSpan(new StyleSpan(Typeface.BOLD), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        } else if (aMiscArray.equals("i")) {
+                            builder.setSpan(new StyleSpan(Typeface.ITALIC), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                         }
-                        if (miscarray[i].equals("u")) {
-                            builder.setSpan(new UnderlineSpan(), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        if (aMiscArray.equals("u")) {
+                            builder.setSpan(new UnderlineSpan(), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                         }
 
                     }
@@ -211,34 +228,34 @@ public abstract class TopicListAdapter extends BaseAdapter implements OnTopListL
                 byte b[] = Base64.decode(misc, Base64.DEFAULT);
                 if (b != null) {
                     if (b.length == 5) {
-                        String miscstring = toBinary(b);
-                        String miscstringstart = miscstring.substring(0, 8);
-                        BigInteger src1 = new BigInteger(miscstringstart, 2);//转换为BigInteger类型
+                        String miscString = toBinary(b);
+                        String miscStringStart = miscString.substring(0, 8);
+                        BigInteger src1 = new BigInteger(miscStringStart, 2);//转换为BigInteger类型
                         int d1 = src1.intValue();
                         if (d1 == 1) {
-                            String miscstringend = miscstring.substring(8, miscstring.length());
-                            BigInteger src2 = new BigInteger(miscstringend, 2);//转换为BigInteger类型
+                            String miscStringEnd = miscString.substring(8, miscString.length());
+                            BigInteger src2 = new BigInteger(miscStringEnd, 2);//转换为BigInteger类型
                             int d2 = src2.intValue();
                             if ((d2 & _FONT_GREEN) == _FONT_GREEN) {
-                                builder.setSpan(greenSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(greenSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             } else if ((d2 & _FONT_BLUE) == _FONT_BLUE) {
-                                builder.setSpan(blueSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(blueSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             } else if ((d2 & _FONT_RED) == _FONT_RED) {
-                                builder.setSpan(redSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(redSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             } else if ((d2 & _FONT_ORANGE) == _FONT_ORANGE) {
-                                builder.setSpan(orangeSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(orangeSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             } else if ((d2 & _FONT_SILVER) == _FONT_SILVER) {
-                                builder.setSpan(sliverSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(sliverSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             }
                             if ((d2 & _FONT_B) == _FONT_B && (d2 & _FONT_I) == _FONT_I) {
-                                builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             } else if ((d2 & _FONT_I) == _FONT_I) {
-                                builder.setSpan(new StyleSpan(Typeface.ITALIC), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(new StyleSpan(Typeface.ITALIC), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             } else if ((d2 & _FONT_B) == _FONT_B) {
-                                builder.setSpan(new StyleSpan(Typeface.BOLD), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(new StyleSpan(Typeface.BOLD), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             }
                             if ((d2 & _FONT_U) == _FONT_U) {
-                                builder.setSpan(new UnderlineSpan(), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                builder.setSpan(new UnderlineSpan(), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             }
 
                         }
@@ -246,34 +263,40 @@ public abstract class TopicListAdapter extends BaseAdapter implements OnTopListL
                 }
             }
         } else {
-            if (!StringUtils.isEmpty(entry.getTitlefont())) {
-                final String font = entry.getTitlefont();
-                if (font.indexOf("~") >= 0) {
+            if (!StringUtils.isEmpty(entry.getTitleFont())) {
+                final String font = entry.getTitleFont();
+                if (font.contains("~")) {
                     if (font.equals("~1~~") || font.equals("~~~1")) {
-                        builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                     } else {
-                        String miscarray[] = font.toLowerCase(Locale.US).split("~");
-                        for (int i = 0; i < miscarray.length; i++) {
-                            if (miscarray[i].equals("green")) {
-                                builder.setSpan(greenSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            } else if (miscarray[i].equals("blue")) {
-                                builder.setSpan(blueSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            } else if (miscarray[i].equals("red")) {
-                                builder.setSpan(redSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            } else if (miscarray[i].equals("orange")) {
-                                builder.setSpan(orangeSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            } else if (miscarray[i].equals("sliver")) {
-                                builder.setSpan(sliverSpan, 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        String miscArray[] = font.toLowerCase(Locale.US).split("~");
+                        for (String aMiscArray : miscArray) {
+                            switch (aMiscArray) {
+                                case "green":
+                                    builder.setSpan(greenSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                    break;
+                                case "blue":
+                                    builder.setSpan(blueSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                    break;
+                                case "red":
+                                    builder.setSpan(redSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                    break;
+                                case "orange":
+                                    builder.setSpan(orangeSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                    break;
+                                case "sliver":
+                                    builder.setSpan(sliverSpan, 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                                    break;
                             }
-                            if (miscarray[i].equals("b") && miscarray[i].equals("i")) {
-                                builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            } else if (miscarray[i].equals("b")) {
-                                builder.setSpan(new StyleSpan(Typeface.BOLD), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                            } else if (miscarray[i].equals("i")) {
-                                builder.setSpan(new StyleSpan(Typeface.ITALIC), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            if (aMiscArray.equals("b") && aMiscArray.equals("i")) {
+                                builder.setSpan(new StyleSpan(Typeface.BOLD_ITALIC), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            } else if (aMiscArray.equals("b")) {
+                                builder.setSpan(new StyleSpan(Typeface.BOLD), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            } else if (aMiscArray.equals("i")) {
+                                builder.setSpan(new StyleSpan(Typeface.ITALIC), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             }
-                            if (miscarray[i].equals("u")) {
-                                builder.setSpan(new UnderlineSpan(), 0, titlelength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            if (aMiscArray.equals("u")) {
+                                builder.setSpan(new UnderlineSpan(), 0, titleLength, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                             }
 
                         }
@@ -291,30 +314,41 @@ public abstract class TopicListAdapter extends BaseAdapter implements OnTopListL
         return sb.toString();
     }
 
-    protected ThreadPageInfo getEntry(int position) {
-        if (topicListInfo != null)
-            return topicListInfo.getArticleEntryList().get(position);
-        return null;
-    }
-
     @Override
-    public void onListLoadFailed() {
-        // Do nothing
+    public int getItemCount() {
+        return mThreadPageList.size();
     }
 
-    @Override
-    public void jsonFinishLoad(TopicListInfo result) {
-        if (!result.get__SEARCHNORESULT()) {
-            this.topicListInfo = result;
-            count = topicListInfo.get__T__ROWS();
-            this.notifyDataSetChanged();
-        }
+    public void remove(int position) {
+        mThreadPageList.remove(position);
+        notifyItemRemoved(position);
     }
 
-    class ViewHolder {
+    public void setOnClickListener(View.OnClickListener listener) {
+        mClickListener = listener;
+    }
+
+    public void setOnLongClickListener(View.OnLongClickListener listener) {
+        mLongClickListener = listener;
+    }
+
+    public class TopicViewHolder extends RecyclerView.ViewHolder {
+
+        @BindView(R.id.num)
         public TextView num;
+
+        @BindView(R.id.title)
         public TextView title;
+
+        @BindView(R.id.author)
         public TextView author;
+
+        @BindView(R.id.last_reply)
         public TextView lastReply;
+
+        public TopicViewHolder(View itemView) {
+            super(itemView);
+            ButterKnife.bind(this, itemView);
+        }
     }
 }

@@ -1,124 +1,129 @@
 package sp.phone.fragment.material;
 
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.Toast;
+import android.widget.TextView;
 
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import gov.anzong.androidnga.R;
-import sp.phone.adapter.material.AppendableTopicAdapter;
-import sp.phone.bean.TopicListInfo;
-import sp.phone.bean.TopicListRequestInfo;
+import gov.anzong.androidnga.activity.BaseActivity;
+import sp.phone.adapter.TopicListAdapter;
 import sp.phone.common.PhoneConfiguration;
-import sp.phone.interfaces.NextJsonTopicListLoader;
-import sp.phone.interfaces.OnTopListLoadFinishedListener;
-import sp.phone.presenter.contract.TopicListContract;
+import sp.phone.forumoperation.ArticleListParam;
+import sp.phone.forumoperation.ParamKey;
+import sp.phone.forumoperation.TopicListParam;
+import sp.phone.mvp.contract.TopicListContract;
+import sp.phone.mvp.presenter.TopicListPresenter;
+import sp.phone.mvp.model.entity.ThreadPageInfo;
+import sp.phone.mvp.model.entity.TopicListInfo;
+import sp.phone.utils.ActivityUtils;
 import sp.phone.utils.StringUtils;
+import sp.phone.view.RecyclerViewEx;
 
 
-public class TopicListFragment extends MaterialCompatFragment implements TopicListContract.View, AdapterView.OnItemLongClickListener {
+public class TopicListFragment extends BaseMvpFragment<TopicListPresenter> implements TopicListContract.View, View.OnClickListener {
 
     private static final String TAG = TopicListFragment.class.getSimpleName();
 
-    private TopicListRequestInfo mRequestInfo;
+    protected TopicListParam mRequestParam;
 
-    private AppendableTopicAdapter mAdapter;
+    protected TopicListAdapter mAdapter;
 
-    private SwipeRefreshLayout mSwipeRefreshLayout;
-    private RecyclerView mListView;
+    @BindView(R.id.swipe_refresh)
+    public SwipeRefreshLayout mSwipeRefreshLayout;
 
-    private TopicListInfo mTopicListInfo;
+    @BindView(R.id.list)
+    public RecyclerViewEx mListView;
 
-    private TopicListContract.Presenter mPresenter;
-
-    private boolean mFromReplayActivity;
+    @BindView(R.id.loading_view)
+    public View mLoadingView;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mRequestInfo = getArguments().getParcelable("requestInfo");
-        if (mRequestInfo.authorId > 0 || mRequestInfo.searchPost > 0 || mRequestInfo.favor > 0
-                || !StringUtils.isEmpty(mRequestInfo.key) || !StringUtils.isEmpty(mRequestInfo.author)
-                || !StringUtils.isEmpty(mRequestInfo.fidGroup)) {//!StringUtils.isEmpty(table) ||
-            mFromReplayActivity = true;
+        mRequestParam = getArguments().getParcelable(ParamKey.KEY_PARAM);
+        setTitle();
+    }
+
+    @Override
+    protected TopicListPresenter onCreatePresenter() {
+        return new TopicListPresenter();
+    }
+
+    protected void setTitle() {
+        if (!StringUtils.isEmpty(mRequestParam.key)) {
+            if (mRequestParam.content == 1) {
+                if (!StringUtils.isEmpty(mRequestParam.fidGroup)) {
+                    setTitle("搜索全站(包含正文):" + mRequestParam.key);
+                } else {
+                    setTitle("搜索(包含正文):" + mRequestParam.key);
+                }
+            } else {
+                if (!StringUtils.isEmpty(mRequestParam.fidGroup)) {
+                    setTitle("搜索全站:" + mRequestParam.key);
+                } else {
+                    setTitle("搜索:" + mRequestParam.key);
+                }
+            }
+        } else if (!StringUtils.isEmpty(mRequestParam.author)) {
+            if (mRequestParam.searchPost > 0) {
+                final String title = "搜索" + mRequestParam.author + "的回复";
+                setTitle(title);
+            } else {
+                final String title = "搜索" + mRequestParam.author + "的主题";
+                setTitle(title);
+            }
+        } else if (mRequestParam.recommend == 1) {
+            setTitle(mRequestParam.title + " - 精华区");
         }
-        setRetainInstance(true);
     }
 
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        if (getParentFragment() == null) {
-            return super.onCreateView(inflater, container, savedInstanceState);
-        } else {
-            return inflater.inflate(R.layout.fragment_topic_list, container, false);
-        }
-    }
-
-    @Override
-    public View onCreateContainerView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_topic_list, container, false);
     }
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
-        mListView = (RecyclerView) view.findViewById(R.id.list);
+        ButterKnife.bind(this, view);
+        ((BaseActivity) getActivity()).setupActionBar();
+
+        mAdapter = new TopicListAdapter(getContext());
+        mAdapter.setOnClickListener(this);
+
         mListView.setLayoutManager(new LinearLayoutManager(getContext()));
-        mAdapter = new AppendableTopicAdapter(getContext(), new NextJsonTopicListLoader() {
+        mListView.setOnNextPageLoadListener(new RecyclerViewEx.OnNextPageLoadListener() {
             @Override
-            public void loadNextPage(OnTopListLoadFinishedListener callback) {
-                mPresenter.loadNextPage(callback);
+            public void loadNextPage() {
+                if (!isRefreshing()) {
+                    mPresenter.loadNextPage(mAdapter.getNextPage(), mRequestParam);
+                }
             }
         });
-        mAdapter.setOnItemClickListener(new EnterJsonArticle());
-        if (mRequestInfo.favor != 0) {
-            Toast.makeText(getActivity(), "长按可删除收藏的帖子", Toast.LENGTH_SHORT).show();
-            mAdapter.setOnItemLongClickListener(this);
-        }
+        mListView.setEmptyView(view.findViewById(R.id.empty_view));
         mListView.setAdapter(mAdapter);
-        if (mTopicListInfo != null) {
-            mPresenter.jsonFinishLoad(mTopicListInfo);
-        }
-        mSwipeRefreshLayout = (SwipeRefreshLayout) view.findViewById(R.id.swipe_refresh);
+
+        mSwipeRefreshLayout.setVisibility(View.GONE);
         mSwipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                mPresenter.refresh();
+                mPresenter.loadPage(1, mRequestParam);
             }
         });
+
+        TextView sayingView = (TextView) mLoadingView.findViewById(R.id.saying);
+        sayingView.setText(ActivityUtils.getSaying());
+
+        mPresenter.loadPage(1, mRequestParam);
+
         super.onViewCreated(view, savedInstanceState);
-    }
-
-    @Override
-    public void onResume() {
-        if (mTopicListInfo == null && getUserVisibleHint() && mPresenter != null) {
-            mPresenter.refresh();
-        }
-        super.onResume();
-    }
-
-    @Override
-    public int getNextPage() {
-        return mAdapter.getNextPage();
-    }
-
-    @Override
-    public TopicListRequestInfo getTopicListRequestInfo() {
-        return mRequestInfo;
-    }
-
-    @Override
-    public View getTopicListView() {
-        return mListView;
     }
 
     @Override
@@ -126,82 +131,64 @@ public class TopicListFragment extends MaterialCompatFragment implements TopicLi
         mListView.scrollToPosition(position);
     }
 
+    @Override
+    public void setNextPageEnabled(boolean enabled) {
+        mAdapter.setNextPageEnabled(enabled);
+    }
 
     @Override
-    public void setPresenter(TopicListContract.Presenter presenter) {
-        mPresenter = presenter;
+    public void removeTopic(int position) {
+
+    }
+
+    @Override
+    public void hideLoadingView() {
+        mLoadingView.setVisibility(View.GONE);
+        mSwipeRefreshLayout.setVisibility(View.VISIBLE);
     }
 
     @Override
     public void setRefreshing(boolean refreshing) {
-        mSwipeRefreshLayout.setRefreshing(refreshing);
+        if (mSwipeRefreshLayout.isShown()) {
+            mSwipeRefreshLayout.setRefreshing(refreshing);
+        }
+    }
+
+    @Override
+    public boolean isRefreshing() {
+        return mSwipeRefreshLayout.isShown() ? mSwipeRefreshLayout.isRefreshing() : mLoadingView.isShown();
     }
 
     @Override
     public void setData(TopicListInfo result) {
-        mTopicListInfo = result;
-        mAdapter.clear();
-        mAdapter.jsonFinishLoad(result);
+        mAdapter.setData(result);
     }
 
     @Override
-    public boolean onItemLongClick(final AdapterView<?> parent, final View view, int position, long id) {
-        final int finalPosition = position;
-        DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                switch (which) {
-                    case DialogInterface.BUTTON_POSITIVE:
-                        mPresenter.removeBookmark(mAdapter.getTidArray(finalPosition), finalPosition);
-                        break;
-
-                    case DialogInterface.BUTTON_NEGATIVE:
-                        // Do nothing
-                        break;
-                }
-            }
-        };
-
-        final AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-        builder.setMessage(this.getString(R.string.delete_favo_confirm_text))
-                .setPositiveButton(R.string.confirm, dialogClickListener)
-                .setNegativeButton(R.string.cancle, dialogClickListener);
-        final AlertDialog dialog = builder.create();
-        dialog.show();
-        return true;
+    public void clearData() {
+        mAdapter.clear();
     }
 
-    private class EnterJsonArticle implements AdapterView.OnItemClickListener {
+    @Override
+    public void onClick(View view) {
+        ThreadPageInfo info = (ThreadPageInfo) view.getTag();
 
-        @Override
-        public void onItemClick(AdapterView<?> parent, View view, int position,
-                long id) {
-            String guide = (String) mAdapter.getItem(position);
-            if (StringUtils.isEmpty(guide)) {
-                return;
-            }
-
-            guide = guide.trim();
-
-            int pid = StringUtils.getUrlParameter(guide, "pid");
-            int tid = StringUtils.getUrlParameter(guide, "tid");
-            int authorId = StringUtils.getUrlParameter(guide, "authorid");
-
-            Intent intent = new Intent();
-            intent.putExtra("tab", "1");
-            intent.putExtra("tid", tid);
-            intent.putExtra("pid", pid);
-            intent.putExtra("authorid", authorId);
-            if (mFromReplayActivity) {
-                intent.putExtra("fromreplyactivity", 1);
-            }
-            mAdapter.setSelected(position);
-            mAdapter.notifyDataSetChanged();
-            intent.setClass(getContext(), PhoneConfiguration.getInstance().articleActivityClass);
-            startActivity(intent);
+        ArticleListParam param = new ArticleListParam();
+        param.tid = info.getTid();
+        param.page = info.getPage();
+        param.title = info.getSubject();
+        if (mRequestParam.searchPost != 0) {
+            param.pid = info.getPid();
+            param.authorId = info.getAuthorId();
+            param.searchPost = mRequestParam.searchPost;
         }
 
+        Intent intent = new Intent();
+        Bundle bundle = new Bundle();
+        bundle.putParcelable(ParamKey.KEY_PARAM, param);
+        intent.putExtras(bundle);
+        intent.setClass(getContext(), PhoneConfiguration.getInstance().articleActivityClass);
+        startActivity(intent);
     }
-
 
 }

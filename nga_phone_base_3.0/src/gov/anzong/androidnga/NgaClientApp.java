@@ -7,15 +7,14 @@ import android.content.pm.ActivityInfo;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 
+import com.alibaba.android.arouter.launcher.ARouter;
 import com.alibaba.fastjson.JSON;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.List;
 
 import gov.anzong.androidnga.util.NetUtil;
 import sp.phone.bean.Board;
-import sp.phone.bean.Bookmark;
 import sp.phone.common.BoardManagerImpl;
 import sp.phone.common.PhoneConfiguration;
 import sp.phone.common.PreferenceKey;
@@ -23,6 +22,7 @@ import sp.phone.common.ThemeManager;
 import sp.phone.common.UserManagerImpl;
 import sp.phone.utils.HttpUtil;
 import sp.phone.utils.NLog;
+import sp.phone.utils.ResourceUtils;
 import sp.phone.utils.StringUtils;
 
 public class NgaClientApp extends Application implements PreferenceKey {
@@ -33,6 +33,7 @@ public class NgaClientApp extends Application implements PreferenceKey {
 
     @Override
     public void onCreate() {
+        ResourceUtils.setContext(this);
         NLog.w(TAG, "app nga android start");
         if (config == null)
             config = PhoneConfiguration.getInstance();
@@ -41,12 +42,17 @@ public class NgaClientApp extends Application implements PreferenceKey {
         initPath();
         UserManagerImpl.getInstance().initialize(this);
         BoardManagerImpl.getInstance().initialize(this);
-
         CrashHandler crashHandler = CrashHandler.getInstance();
         // 注册crashHandler
         crashHandler.init(getApplicationContext());
 
         NetUtil.init(this);
+
+        if (BuildConfig.DEBUG) {   // 这两行必须写在init之前，否则这些配置在init过程中将无效
+            ARouter.openLog();     // 打印日志
+            ARouter.openDebug();   // 开启调试模式(如果在InstantRun模式下运行，必须开启调试模式！线上版本需要关闭,否则有安全风险)
+        }
+        ARouter.init(this); // 尽可能早，推荐在Application中初始化
 
         super.onCreate();
     }
@@ -85,7 +91,7 @@ public class NgaClientApp extends Application implements PreferenceKey {
     @Deprecated
     public void addToUserList(String uid, String cid, String name,
                               String replyString, int replytotalnum, String blacklist) {
-        UserManagerImpl.getInstance().addUser(uid,cid,name,replyString,replytotalnum,blacklist);
+        UserManagerImpl.getInstance().addUser(uid, cid, name, replyString, replytotalnum, blacklist);
     }
 
     @Deprecated
@@ -106,10 +112,10 @@ public class NgaClientApp extends Application implements PreferenceKey {
         ThemeManager tm = ThemeManager.getInstance();
         PhoneConfiguration config = PhoneConfiguration.getInstance();
 
-        tm.setTheme(Integer.parseInt(sp.getString(PreferenceKey.MATERIAL_THEME,"0")));
-        config.setShowBottomTab(sp.getBoolean(PreferenceKey.BOTTOM_TAB,false));
-        config.setLeftHandMode(sp.getBoolean(PreferenceKey.LEFT_HAND,false));
-        config.setHardwareAcceleratedMode(sp.getBoolean(PreferenceKey.HARDWARE_ACCELERATED,true));
+        tm.setTheme(Integer.parseInt(sp.getString(PreferenceKey.MATERIAL_THEME, "0")));
+        config.setShowBottomTab(sp.getBoolean(PreferenceKey.BOTTOM_TAB, false));
+        config.setLeftHandMode(sp.getBoolean(PreferenceKey.LEFT_HAND, false));
+        config.setHardwareAcceleratedMode(sp.getBoolean(PreferenceKey.HARDWARE_ACCELERATED, true));
 
         SharedPreferences share = getSharedPreferences(PERFERENCE,
                 MODE_PRIVATE);
@@ -166,7 +172,7 @@ public class NgaClientApp extends Application implements PreferenceKey {
         config.iconmode = share.getBoolean(SHOW_ICON_MODE, false);
         config.swipeBack = share.getBoolean(SWIPEBACK, true);
         config.swipeenablePosition = share.getInt(SWIPEBACKPOSITION, 2);
-        config.materialMode = share.getBoolean(PreferenceKey.MATERIAL_MODE,true);
+        config.materialMode = share.getBoolean(PreferenceKey.MATERIAL_MODE, true);
 
         // font
         final float defTextSize = 21.0f;// new TextView(this).getTextSize();
@@ -199,17 +205,6 @@ public class NgaClientApp extends Application implements PreferenceKey {
 //            config.setUiFlag(uiFlag);
 //        }
         config.setUiFlag(0);
-
-        // bookmarks
-        String bookmarkJson = share.getString(BOOKMARKS, "");
-        List<Bookmark> bookmarks = new ArrayList<Bookmark>();
-        try {
-            if (!bookmarkJson.equals(""))
-                bookmarks = JSON.parseArray(bookmarkJson, Bookmark.class);
-        } catch (Exception e) {
-            NLog.e("JSON_error", NLog.getStackTraceString(e));
-        }
-        PhoneConfiguration.getInstance().setBookmarks(bookmarks);
 
     }
 

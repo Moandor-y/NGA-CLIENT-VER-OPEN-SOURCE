@@ -1,177 +1,193 @@
 package sp.phone.adapter;
 
 import android.content.Context;
-import android.content.res.Resources;
+import android.support.v7.widget.RecyclerView;
 import android.text.TextPaint;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.BaseAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import butterknife.BindView;
+import butterknife.ButterKnife;
 import gov.anzong.androidnga.R;
 import sp.phone.bean.MessageListInfo;
 import sp.phone.bean.MessageThreadPageInfo;
-import sp.phone.interfaces.OnMessageListLoadFinishedListener;
 import sp.phone.common.PhoneConfiguration;
-import sp.phone.utils.StringUtils;
 import sp.phone.common.ThemeManager;
+import sp.phone.utils.ResourceUtils;
+import sp.phone.utils.StringUtils;
+import sp.phone.view.RecyclerViewEx;
 
-public class MessageListAdapter extends BaseAdapter implements
-        OnMessageListLoadFinishedListener {
+/**
+ * Created by Justwen on 2017/10/1.
+ */
 
-    protected Context context;
-    protected int count = 0;
-    private LayoutInflater inflater;
-    private MessageListInfo messageListInfo = null;
-    private int selected = -1;
+public class MessageListAdapter extends RecyclerView.Adapter<MessageListAdapter.MessageViewHolder> implements RecyclerViewEx.IAppendAbleAdapter {
+
+    private List<MessageListInfo> mInfoList = new ArrayList<>();
+
+    private boolean mPrompted;
+
+    private boolean mEndOfList;
+
+    private int mTotalCount;
+
+    private Context mContext;
+
+    private View.OnClickListener mClickListener;
 
     public MessageListAdapter(Context context) {
-        this.context = context;
-        this.inflater = LayoutInflater.from(context);
+        mContext = context;
     }
 
-    public Object getItem(int arg0) {
+    protected MessageThreadPageInfo getEntry(int position) {
+        for (int i = 0; i < mInfoList.size(); i++) {
+            if (position < (mInfoList.get(i).get__currentPage() * mInfoList.get(i).get__rowsPerPage())) {
+                return mInfoList.get(i).getMessageEntryList().get(position);
+            }
+            position -= mInfoList.get(i).get__rowsPerPage();
+        }
+        return null;
+    }
 
-        MessageThreadPageInfo entry = getEntry(arg0);
+    @Override
+    public int getNextPage() {
+        return mInfoList.size() + 1;
+    }
+
+    @Override
+    public boolean hasNextPage() {
+        return !mEndOfList;
+    }
+
+    @Override
+    public MessageViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        return new MessageViewHolder(LayoutInflater.from(mContext).inflate(R.layout.relative_messgae_list, parent, false));
+    }
+
+    @Override
+    public void onBindViewHolder(MessageViewHolder holder, int position) {
+        handleJsonList(holder, position);
+        if (mClickListener != null) {
+            holder.itemView.setOnClickListener(mClickListener);
+        }
+        holder.itemView.setTag(getMidString(position));
+
+        if (position + 1 == getItemCount()
+                && !hasNextPage()
+                && !mPrompted) {
+            Toast.makeText(mContext, R.string.last_page_prompt_message, Toast.LENGTH_SHORT).show();
+            mPrompted = true;
+        }
+    }
+
+    private String getMidString(int position) {
+        MessageThreadPageInfo entry = getEntry(position);
         if (entry == null || entry.getMid() == 0) {
             return null;
         }
-
-        String ret = "mid=" + entry.getMid();
-
-        return ret;
+        return "mid=" + entry.getMid();
 
     }
 
-    public int getCount() {
-        return count;
-    }
-
-    public long getItemId(int arg0) {
-        return arg0;
-    }
-
-    public View getView(int position, View view, ViewGroup parent) {
-
-        View convertView = view;// m.get(position);
-        ViewHolder holder = null;
-        if (convertView == null) {
-            convertView = inflater.inflate(R.layout.relative_messgae_list, null);
-            TextView num = (TextView) convertView.findViewById(R.id.num);
-            TextView title = (TextView) convertView.findViewById(R.id.title);
-            TextView author = (TextView) convertView.findViewById(R.id.author);
-            TextView time = (TextView) convertView.findViewById(R.id.time);
-            TextView lasttime = (TextView) convertView.findViewById(R.id.lasttime);
-            TextView lastReply = (TextView) convertView.findViewById(R.id.last_reply);
-            holder = new ViewHolder();
-            holder.num = num;
-            holder.title = title;
-            holder.author = author;
-            holder.lastReply = lastReply;
-            holder.time = time;
-            holder.lasttime = lasttime;
-            convertView.setTag(holder);
-
-        } else {
-            holder = (ViewHolder) convertView.getTag();
-
-        }
-
-        ThemeManager cfg = ThemeManager.getInstance();
-        int colorId = cfg.getBackgroundColor(position);
-        if (position == this.selected) {
-            if (cfg.mode == ThemeManager.MODE_NIGHT)
-                colorId = R.color.topiclist_selected_color;
-            else
-                colorId = R.color.holo_blue_light;
-            ;
-        }
-        convertView.setBackgroundResource(colorId);
-
-        handleJsonList(holder, position);
-        return convertView;
-
-    }
-
-    public void setSelected(int position) {
-        this.selected = position;
-    }
-
-    private void handleJsonList(ViewHolder holder, int position) {
+    private void handleJsonList(MessageViewHolder holder, int position) {
         MessageThreadPageInfo entry = getEntry(position);
-        // this.topicListInfo.getArticleEntryList().get(position);
-
         if (entry == null) {
             return;
         }
-        Resources res = inflater.getContext().getResources();
         ThemeManager theme = ThemeManager.getInstance();
-        boolean night = false;
-        int nightLinkColor = res.getColor(R.color.night_link_color);
-        if (theme.getMode() == ThemeManager.MODE_NIGHT)
-            night = true;
-        String fromuser;
-        fromuser = entry.getFrom_username();
-        if (StringUtils.isEmpty(fromuser)) {
-            fromuser = "#SYSTEM#";
+        String fromUser = entry.getFrom_username();
+        if (StringUtils.isEmpty(fromUser)) {
+            fromUser = "#SYSTEM#";
         }
-        holder.author.setText(fromuser);
+        holder.author.setText(fromUser);
         holder.time.setText(entry.getTime());
-        holder.lasttime.setText(entry.getLastTime());
+        holder.lastTime.setText(entry.getLastTime());
         String lastPoster = entry.getLast_from_username();
-        if (StringUtils.isEmpty(lastPoster))
-            lastPoster = fromuser;
+        if (StringUtils.isEmpty(lastPoster)) {
+            lastPoster = fromUser;
+        }
         holder.lastReply.setText(lastPoster);
         holder.num.setText(String.valueOf(entry.getPosts()));
-        if (night) {
-            holder.author.setTextColor(nightLinkColor);
-            holder.time.setTextColor(nightLinkColor);
-            holder.lasttime.setTextColor(nightLinkColor);
-            holder.lastReply.setTextColor(nightLinkColor);
-            holder.num.setTextColor(nightLinkColor);
-        }
-        holder.title.setTextColor(res.getColor(theme.getForegroundColor()));
+        holder.title.setTextColor(ResourceUtils.getColor(theme.getForegroundColor()));
         float size = PhoneConfiguration.getInstance().getTextSize();
 
-        String titile = entry.getSubject();
-        if (StringUtils.isEmpty(titile)) {
-            titile = entry.getSubject();
-            holder.title.setText(StringUtils.unEscapeHtml(titile));
+        String title = entry.getSubject();
+        if (StringUtils.isEmpty(title)) {
+            title = entry.getSubject();
+            holder.title.setText(StringUtils.unEscapeHtml(title));
 
         } else {
             holder.title.setText(StringUtils.removeBrTag(StringUtils
-                    .unEscapeHtml(titile)));
+                    .unEscapeHtml(title)));
         }
 
         holder.title.setTextSize(size);
         final TextPaint tp = holder.title.getPaint();
         tp.setFakeBoldText(false);
 
+        int colorId = theme.getBackgroundColor(position);
+        holder.itemView.setBackgroundResource(colorId);
+
     }
 
-    protected MessageThreadPageInfo getEntry(int position) {
-        if (messageListInfo != null)
-            return messageListInfo.getMessageEntryList().get(position);
-        return null;
+    public void setOnClickListener(View.OnClickListener listener) {
+        mClickListener = listener;
     }
 
     @Override
-    public void jsonfinishLoad(MessageListInfo result) {
-        this.messageListInfo = result;
-        count = messageListInfo.getMessageEntryList().size();
-        this.notifyDataSetChanged();
+    public int getItemCount() {
+        return mTotalCount;
+    }
+
+    private void reset() {
+        mTotalCount = 0;
+        mPrompted = false;
+        mInfoList.clear();
+    }
+
+    public void setData(MessageListInfo result) {
+        if (result == null) {
+            return;
+        } else if (result.get__currentPage() == 1) {
+            reset();
+        }
+
+        mInfoList.add(result);
+        mTotalCount += result.getMessageEntryList().size();
+        mEndOfList = result.get__nextPage() <= 0;
+        notifyDataSetChanged();
 
     }
 
-    class ViewHolder {
-        public TextView num;
-        public TextView title;
-        public TextView author;
-        public TextView lastReply;
-        public TextView time;
-        public TextView lasttime;
+    public static class MessageViewHolder extends RecyclerView.ViewHolder {
 
+        @BindView(R.id.num)
+        TextView num;
+
+        @BindView(R.id.title)
+        TextView title;
+
+        @BindView(R.id.author)
+        TextView author;
+
+        @BindView(R.id.last_reply)
+        TextView lastReply;
+
+        @BindView(R.id.time)
+        TextView time;
+
+        @BindView(R.id.lasttime)
+        TextView lastTime;
+
+        public MessageViewHolder(View itemView) {
+            super(itemView);
+            ButterKnife.bind(this, itemView);
+        }
     }
-
 }

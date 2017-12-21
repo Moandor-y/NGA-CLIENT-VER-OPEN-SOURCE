@@ -8,9 +8,6 @@ buildscript {
         }
         mavenCentral()
         jcenter()
-        maven {
-            url 'http://jitpack.io'
-        }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.0.0'
@@ -20,13 +17,12 @@ buildscript {
 allprojects {
     repositories {
         jcenter()
-        google()
-
+        maven { url "https://jitpack.io" }
+        maven { url 'https://maven.google.com' }
         flatDir {
             dirs 'libs'
         }
     }
-
 }
 
 task clean(type: Delete) {
@@ -37,6 +33,6 @@ project.ext {
     compileSdkVersion = 26
     buildToolsVersion = '27.0.1'
     androidSupportVersion = '27.0.1'
-    appVersionName = '2.0.69'
-    appVersionCode = 2069
+    appVersionName = '2.0.73'
+    appVersionCode = 2073
 }

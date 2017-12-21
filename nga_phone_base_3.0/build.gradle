@@ -10,23 +10,22 @@ def isJenkins() {
     return project.hasProperty('IS_JENKINS') && IS_JENKINS == 'true'
 }
 
-buildscript {
-    repositories {
-        maven {
-            url 'http://maven.aliyun.com/nexus/content/groups/public/'
-        }
-        maven {
-            url 'http://oss.sonatype.org/content/repositories/snapshots'
-        }
-        mavenCentral()
-        jcenter()
-        maven { url "https://jitpack.io" }
-    }
-}
-
 android {
     compileSdkVersion project.compileSdkVersion
     buildToolsVersion project.buildToolsVersion
+
+    signingConfigs {
+        signingConfig {
+            if (isJenkins()) {
+                storeFile file('../../android19910914.keystore')
+            } else {
+                storeFile file('..\\..\\android19910914.keystore')
+            }
+            storePassword '19910914'
+            keyAlias 'android.keystore'
+            keyPassword '19910914'
+        }
+    }
 
     packagingOptions {
         exclude 'lib/arm64-v8a/*.so'
@@ -38,13 +37,23 @@ android {
 
     defaultConfig {
         applicationId "gov.anzong.androidnga"
+<<<<<<< HEAD
         minSdkVersion 20
+=======
+        minSdkVersion 21
+>>>>>>> 8b61a6b7749fe7bb767c0b0fa6a533ce2a670b49
         targetSdkVersion 26
         multiDexEnabled true
         resConfigs "zh", "en"
 
         versionCode project.appVersionCode
         versionName project.appVersionName
+
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments = [ moduleName : project.getName() ]
+            }
+        }
     }
 
     buildTypes {
@@ -96,18 +105,25 @@ android {
         variant.outputs.all { output ->
             def newName
             def timeNow
+            def outDirectory
             if (isJenkins()) {
                 timeNow = JENKINS_TIME
-                newName = 'NGA-v' + project.appVersionName + '-' + timeNow + '-' + variant.buildType.name + '.apk'
+                outDirectory = '/auto-build/tomcat/webapps/download/'
+                newName = 'NGA-v' + APP_VERSION_NAME + '-' + timeNow + '-' + variant.buildType.name + '.apk'
             } else {
                 timeNow = getDate()
+                outDirectory = output.outputFile.parent
                 if (variant.buildType.name == 'debug') {
                     newName = 'NGA-v' + project.appVersionName + '-debug.apk'
                 } else {
                     newName = 'NGA-v' + project.appVersionName + '-' + timeNow + '-' + variant.buildType.name + '.apk'
                 }
             }
+<<<<<<< HEAD
             output.outputFileName = newName
+=======
+            output.outputFile = new File(outDirectory, newName)
+>>>>>>> 8b61a6b7749fe7bb767c0b0fa6a533ce2a670b49
         }
     }
 }
@@ -120,7 +136,7 @@ dependencies {
     compile project(':ActionBar-PullToRefresh-Library')
     compile(name: 'floatingactionmenu', ext: 'aar')
     compile 'com.squareup.okhttp3:okhttp:3.8.0'
-    compile 'com.alibaba:fastjson:1.1.63.android'
+    compile 'com.alibaba:fastjson:1.2.41'
     compile 'com.jakewharton:butterknife:8.8.1'
     annotationProcessor 'com.jakewharton:butterknife-compiler:8.8.1'
     compile 'com.github.bumptech.glide:glide:3.8.0'
@@ -132,4 +148,10 @@ dependencies {
     compile 'com.squareup.retrofit2:retrofit-converters:2.3.0'
     compile 'com.squareup.retrofit2:converter-scalars:2.3.0'
     compile 'com.squareup.retrofit2:adapter-rxjava2:2.3.0'
+    compile 'com.github.chrisbanes:photoview:2.1.3'
+    compile 'com.jakewharton.rxbinding2:rxbinding:2.0.0'
+    compile 'com.trello.rxlifecycle2:rxlifecycle-components:2.1.0'
+    compile 'com.alibaba:arouter-api:1.2.4'
+    annotationProcessor 'com.alibaba:arouter-compiler:1.1.4'
+
 }

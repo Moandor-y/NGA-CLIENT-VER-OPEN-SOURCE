@@ -20,7 +20,10 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
+<<<<<<< HEAD
 import android.support.v7.app.AppCompatActivity;
+=======
+>>>>>>> 8b61a6b7749fe7bb767c0b0fa6a533ce2a670b49
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode.Callback;
 import android.text.Html;
@@ -46,12 +49,12 @@ import gov.anzong.androidnga.NgaClientApp;
 import gov.anzong.androidnga.R;
 import gov.anzong.androidnga.util.NetUtil;
 import noname.gson.parse.NonameReadBody;
-import sp.phone.adapter.NonameArticleListAdapter;
+import sp.phone.adapter.noname.NonameArticleListAdapter;
 import sp.phone.bean.MessageArticlePageInfo;
 import sp.phone.bean.ThreadRowInfo;
 import sp.phone.common.PhoneConfiguration;
 import sp.phone.common.ThemeManager;
-import sp.phone.fragment.ReportDialogFragment;
+import sp.phone.fragment.dialog.ReportDialogFragment;
 import sp.phone.fragment.dialog.SuperTextDialogFragment;
 import sp.phone.proxy.ProxyBridge;
 

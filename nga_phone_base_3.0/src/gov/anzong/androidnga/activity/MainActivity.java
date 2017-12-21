@@ -37,9 +37,9 @@ import gov.anzong.androidnga.Utils;
 import sp.phone.common.PhoneConfiguration;
 import sp.phone.common.ThemeManager;
 import sp.phone.fragment.BoardFragment;
-import sp.phone.fragment.ProfileSearchDialogFragment;
-import sp.phone.presenter.BoardPresenter;
-import sp.phone.presenter.contract.BoardContract;
+import sp.phone.fragment.dialog.ProfileSearchDialogFragment;
+import sp.phone.mvp.presenter.BoardPresenter;
+import sp.phone.mvp.contract.BoardContract;
 import sp.phone.utils.ActivityUtils;
 import sp.phone.utils.HttpUtil;
 import sp.phone.utils.NLog;
@@ -83,7 +83,6 @@ public class MainActivity extends BaseActivity {
                     .setPositiveButton(R.string.i_know, null);
             builder.create().show();
             app.setNewVersion(false);
-            showToast(getString(R.string.player_plugin_hint));
         }
     }
 
@@ -294,7 +293,8 @@ public class MainActivity extends BaseActivity {
         }
 
         if (isReply) {
-            intent.putExtra("author", userName + "&searchpost=1");
+            intent.putExtra("author", userName);
+            intent.putExtra("searchpost",1);
         } else {
             intent.putExtra("author", userName);
         }

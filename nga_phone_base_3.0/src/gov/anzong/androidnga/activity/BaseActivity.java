@@ -70,13 +70,19 @@ public abstract class BaseActivity extends AppCompatActivity {
         }
     }
 
-    protected void setupActionBar(Toolbar toolbar){
-        setSupportActionBar(toolbar);
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null){
-            actionBar.setDisplayHomeAsUpEnabled(true);
-            actionBar.setHomeButtonEnabled(true);
+    public void setupActionBar(Toolbar toolbar){
+        if (toolbar != null) {
+            setSupportActionBar(toolbar);
+            ActionBar actionBar = getSupportActionBar();
+            if (actionBar != null) {
+                actionBar.setDisplayHomeAsUpEnabled(true);
+                actionBar.setHomeButtonEnabled(true);
+            }
         }
+    }
+
+    public void setupActionBar() {
+        setupActionBar((Toolbar) findViewById(R.id.toolbar));
     }
 
     protected void showToast(int res) {

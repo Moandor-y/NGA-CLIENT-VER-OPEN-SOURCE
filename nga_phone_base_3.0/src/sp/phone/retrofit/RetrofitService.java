@@ -3,8 +3,12 @@ package sp.phone.retrofit;
 import java.util.Map;
 
 import io.reactivex.Observable;
+import retrofit2.http.FieldMap;
+import retrofit2.http.FormUrlEncoded;
 import retrofit2.http.GET;
+import retrofit2.http.POST;
 import retrofit2.http.QueryMap;
+import retrofit2.http.Url;
 
 /**
  * Created by Justwen on 2017/10/10.
@@ -12,9 +16,14 @@ import retrofit2.http.QueryMap;
 
 public interface RetrofitService {
 
-    /**
-     *  http://bbs.nga.cn/nuke.php?__lib=message&__act=message&act=list&page=1&lite=js
-     */
     @GET("nuke.php")
-    Observable<String> getMessageListInfo(@QueryMap Map<String,String> map);
+    Observable<String> getInfo(@QueryMap Map<String,String> map);
+
+    @GET
+    Observable<String> get(@Url String url);
+
+    @FormUrlEncoded
+    @POST("nuke.php")
+    Observable<String> post(@FieldMap Map<String,String> map);
+
 }
