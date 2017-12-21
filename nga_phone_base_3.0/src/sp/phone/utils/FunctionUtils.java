@@ -20,10 +20,6 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
-<<<<<<< HEAD
-import android.support.v7.app.AppCompatActivity;
-=======
->>>>>>> 8b61a6b7749fe7bb767c0b0fa6a533ce2a670b49
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.view.ActionMode.Callback;
 import android.text.Html;

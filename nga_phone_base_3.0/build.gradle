@@ -37,11 +37,7 @@ android {
 
     defaultConfig {
         applicationId "gov.anzong.androidnga"
-<<<<<<< HEAD
-        minSdkVersion 20
-=======
         minSdkVersion 21
->>>>>>> 8b61a6b7749fe7bb767c0b0fa6a533ce2a670b49
         targetSdkVersion 26
         multiDexEnabled true
         resConfigs "zh", "en"
@@ -119,11 +115,7 @@ android {
                     newName = 'NGA-v' + project.appVersionName + '-' + timeNow + '-' + variant.buildType.name + '.apk'
                 }
             }
-<<<<<<< HEAD
             output.outputFileName = newName
-=======
-            output.outputFile = new File(outDirectory, newName)
->>>>>>> 8b61a6b7749fe7bb767c0b0fa6a533ce2a670b49
         }
     }
 }
